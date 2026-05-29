@@ -1,0 +1,90 @@
+server:
+  port: 8080
+  error:
+    include-message: always
+    include-binding-errors: always
+
+spring:
+  application:
+    name: currency-conversion-api
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=3600s   # Rates cached 1 hour
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+# ─── External API ─────────────────────────────────────────────────────────────
+exchange-rate:
+  api:
+    base-url: https://v6.exchangerate-api.com/v6
+    api-key: ${EXCHANGE_RATE_API_KEY:dbf260b8824a53ef30092b57}
+    timeout-seconds: 5
+
+# ─── Resilience4j ─────────────────────────────────────────────────────────────
+resilience4j:
+  circuitbreaker:
+    instances:
+      exchangeRateService:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        wait-duration-in-open-state: 30s
+        failure-rate-threshold: 50
+        event-consumer-buffer-size: 10
+  retry:
+    instances:
+      exchangeRateService:
+        max-attempts: 3
+        wait-duration: 500ms
+        retry-exceptions:
+          - org.springframework.web.reactive.function.client.WebClientException
+  ratelimiter:
+    instances:
+      conversionEndpoint:
+        limit-for-period: 100
+        limit-refresh-period: 1m
+        timeout-duration: 0
+
+# ─── Actuator ─────────────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,caches,circuitbreakers
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: Currency Conversion API
+    version: 1.0.0
+    description: Real-time currency conversion with circuit breaker and caching
+
+# ─── Logging ──────────────────────────────────────────────────────────────────
+logging:
+  level:
+    com.elite.currency: DEBUG
+    org.springframework.web.reactive: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# ─── SpringDoc / Swagger ───────────────────────────────────────────────────────
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
+    try-it-out-enabled: true
+  api-docs:
+    path: /v3/api-docs
+  show-actuator: false

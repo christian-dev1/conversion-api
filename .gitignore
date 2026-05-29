@@ -1,0 +1,12 @@
+target/
+.mvn/
+*.class
+*.jar
+*.war
+*.ear
+.idea/
+*.iml
+.DS_Store
+application-local.yml
+*.env
+HELP.md
